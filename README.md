@@ -1,2 +1,2 @@
 # SpeakEasy
-An ai powered speech practoce system.
+An ai powered speech practice system.
