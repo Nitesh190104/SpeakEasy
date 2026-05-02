@@ -1,0 +1,607 @@
+{% extends "layout.html" %}
+
+{% block title %}Practice {{ language | capitalize }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Mic button */
+    .mic-btn {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+    }
+
+    .mic-btn:hover {
+        transform: scale(1.08);
+        box-shadow: 0 12px 40px rgba(99, 102, 241, 0.5);
+    }
+
+    .mic-btn.recording {
+        background: linear-gradient(135deg, #ef4444, #f43f5e);
+        animation: pulse-glow 1.5s ease-in-out infinite;
+        box-shadow: 0 8px 32px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Waveform animation */
+    .waveform {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        height: 40px;
+    }
+
+    .waveform .bar {
+        width: 4px;
+        border-radius: 2px;
+        background: linear-gradient(180deg, #818cf8, #c084fc);
+        animation: wave 0.8s ease-in-out infinite;
+    }
+
+    @keyframes wave {
+        0%, 100% { height: 8px; }
+        50% { height: 32px; }
+    }
+
+    /* Feedback section animations */
+    .feedback-card {
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeUp 0.5s ease forwards;
+    }
+
+    @keyframes fadeUp {
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Score circle animation */
+    .score-circle {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .score-circle svg {
+        position: absolute;
+        inset: 0;
+        transform: rotate(-90deg);
+    }
+
+    /* Progress bar fill */
+    .progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 1s ease;
+        background: linear-gradient(90deg, #6366f1, #a78bfa, #c084fc);
+    }
+
+    /* Typewriter effect */
+    .typewriter {
+        display: inline;
+    }
+
+    .typewriter .cursor {
+        display: inline-block;
+        width: 2px;
+        height: 1em;
+        background: #a78bfa;
+        margin-left: 2px;
+        animation: blink 0.8s step-end infinite;
+    }
+
+    @keyframes blink {
+        50% { opacity: 0; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <!-- Language Header -->
+    <div class="text-center mb-8">
+        <div class="inline-block mb-4">
+            <span class="badge" id="language-badge">
+                {% if language == 'english' %}🇬🇧{% elif language == 'spanish' %}🇪🇸{% elif language == 'french' %}🇫🇷{% elif language == 'german' %}🇩🇪{% endif %}
+                {{ language | capitalize }}
+            </span>
+        </div>
+        <h1 class="text-3xl md:text-4xl font-bold mb-2">
+            <span class="gradient-text">Practice Session</span>
+        </h1>
+        <p class="text-slate-400">Speak naturally and get AI-powered feedback</p>
+    </div>
+
+    <!-- Language Switcher -->
+    <div class="flex justify-center gap-3 mb-8">
+        <a href="/practice?language=english" class="px-4 py-2 rounded-xl text-sm font-medium transition-all {% if language == 'english' %}bg-indigo-500/20 text-indigo-300 border border-indigo-500/30{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %}">🇬🇧 English</a>
+        <a href="/practice?language=spanish" class="px-4 py-2 rounded-xl text-sm font-medium transition-all {% if language == 'spanish' %}bg-indigo-500/20 text-indigo-300 border border-indigo-500/30{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %}">🇪🇸 Spanish</a>
+        <a href="/practice?language=french" class="px-4 py-2 rounded-xl text-sm font-medium transition-all {% if language == 'french' %}bg-indigo-500/20 text-indigo-300 border border-indigo-500/30{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %}">🇫🇷 French</a>
+        <a href="/practice?language=german" class="px-4 py-2 rounded-xl text-sm font-medium transition-all {% if language == 'german' %}bg-indigo-500/20 text-indigo-300 border border-indigo-500/30{% else %}text-slate-400 hover:text-white hover:bg-white/5{% endif %}">🇩🇪 German</a>
+    </div>
+
+    <!-- Prompt Card -->
+    <div class="glass-strong p-8 mb-8" id="prompt-card">
+        <div class="flex items-start gap-4">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/20 flex items-center justify-center text-lg flex-shrink-0 border border-indigo-500/20">
+                💬
+            </div>
+            <div class="flex-1">
+                <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wider mb-2">Conversation Prompt</p>
+                <p class="text-xl md:text-2xl font-medium text-white leading-relaxed" id="prompt-text">
+                    Loading prompt...
+                </p>
+            </div>
+        </div>
+        <div class="mt-6 flex justify-end">
+            <button onclick="getNewPrompt()" class="text-sm text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-2" id="new-prompt-btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                </svg>
+                New Prompt
+            </button>
+        </div>
+    </div>
+
+    <!-- Recording Section -->
+    <div class="glass p-8 text-center mb-8" id="recording-section">
+        <div class="flex flex-col items-center gap-6">
+            <!-- Waveform (hidden until recording) -->
+            <div class="waveform hidden" id="waveform">
+                <div class="bar" style="animation-delay: 0s"></div>
+                <div class="bar" style="animation-delay: 0.1s"></div>
+                <div class="bar" style="animation-delay: 0.2s"></div>
+                <div class="bar" style="animation-delay: 0.3s"></div>
+                <div class="bar" style="animation-delay: 0.4s"></div>
+                <div class="bar" style="animation-delay: 0.3s"></div>
+                <div class="bar" style="animation-delay: 0.2s"></div>
+                <div class="bar" style="animation-delay: 0.1s"></div>
+                <div class="bar" style="animation-delay: 0s"></div>
+            </div>
+
+            <!-- Mic button -->
+            <button class="mic-btn" id="mic-btn" onclick="toggleRecording()">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="white" id="mic-icon">
+                    <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                    <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                </svg>
+            </button>
+
+            <p class="text-slate-400 text-sm" id="recording-status">Click the microphone to start speaking</p>
+
+            <!-- Divider with OR -->
+            <div class="flex items-center gap-4 w-full my-2">
+                <div class="flex-1 h-px bg-white/10"></div>
+                <span class="text-xs text-slate-500 font-medium">OR TYPE YOUR RESPONSE</span>
+                <div class="flex-1 h-px bg-white/10"></div>
+            </div>
+
+            <!-- Text input fallback -->
+            <div class="w-full" id="text-input-container">
+                <div class="glass p-4 text-left">
+                    <label for="text-response" class="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2 block">Type Your Response</label>
+                    <textarea id="text-response" rows="3" placeholder="Type your answer here..." class="w-full bg-white/5 border border-white/10 rounded-lg p-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/30 resize-none text-sm" oninput="onTextInput()"></textarea>
+                </div>
+            </div>
+
+            <!-- Transcript display (for speech) -->
+            <div class="hidden w-full" id="transcript-container">
+                <div class="glass p-4 text-left">
+                    <p class="text-xs font-semibold text-purple-400 uppercase tracking-wider mb-2">Your Response</p>
+                    <p class="text-white" id="transcript-text"></p>
+                </div>
+            </div>
+
+            <!-- Submit button -->
+            <button class="btn-glow hidden" id="submit-btn" onclick="submitForFeedback()">
+                ✨ Get AI Feedback
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading state -->
+    <div class="glass p-8 text-center hidden" id="loading-section">
+        <div class="flex flex-col items-center gap-4">
+            <div class="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+            <p class="text-slate-400">Analyzing your speech with AI...</p>
+        </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="hidden" id="feedback-section">
+        <!-- Overall Score -->
+        <div class="glass-strong p-8 mb-6 text-center feedback-card">
+            <h2 class="text-lg font-semibold text-slate-400 mb-4">Overall Score</h2>
+            <div class="score-circle mx-auto mb-4">
+                <svg viewBox="0 0 120 120">
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                    <circle cx="60" cy="60" r="54" fill="none" stroke="url(#scoreGradient)" stroke-width="8" stroke-linecap="round"
+                        stroke-dasharray="339.29" stroke-dashoffset="339.29" id="score-arc"/>
+                </svg>
+                <span class="text-3xl font-black text-white" id="overall-score">0</span>
+            </div>
+            <p class="text-slate-300 max-w-lg mx-auto" id="overall-feedback"></p>
+
+            <!-- XP & Streak info -->
+            <div class="flex justify-center gap-6 mt-6" id="xp-info">
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-indigo-400" id="xp-gained">+0</p>
+                    <p class="text-xs text-slate-500">XP Earned</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-2xl font-bold text-amber-400" id="streak-count">0</p>
+                    <p class="text-xs text-slate-500">Day Streak 🔥</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Score Breakdown -->
+        <div class="grid md:grid-cols-2 gap-4 mb-6">
+            <!-- Grammar -->
+            <div class="glass p-6 feedback-card" style="animation-delay: 0.1s">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">📝</span>
+                        <h3 class="font-semibold text-white">Grammar</h3>
+                    </div>
+                    <span class="text-lg font-bold text-indigo-400" id="grammar-score">0</span>
+                </div>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-3">
+                    <div class="progress-fill" id="grammar-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-slate-400 whitespace-pre-line" id="grammar-feedback"></p>
+            </div>
+
+            <!-- Fluency -->
+            <div class="glass p-6 feedback-card" style="animation-delay: 0.2s">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🗣️</span>
+                        <h3 class="font-semibold text-white">Fluency</h3>
+                    </div>
+                    <span class="text-lg font-bold text-indigo-400" id="fluency-score">0</span>
+                </div>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-3">
+                    <div class="progress-fill" id="fluency-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-slate-400 whitespace-pre-line" id="fluency-feedback"></p>
+            </div>
+
+            <!-- Pronunciation -->
+            <div class="glass p-6 feedback-card" style="animation-delay: 0.3s">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">🎤</span>
+                        <h3 class="font-semibold text-white">Pronunciation</h3>
+                    </div>
+                    <span class="text-lg font-bold text-indigo-400" id="pronunciation-score">0</span>
+                </div>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-3">
+                    <div class="progress-fill" id="pronunciation-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-slate-400 whitespace-pre-line" id="pronunciation-feedback"></p>
+            </div>
+
+            <!-- Vocabulary -->
+            <div class="glass p-6 feedback-card" style="animation-delay: 0.4s">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-lg">📖</span>
+                        <h3 class="font-semibold text-white">Vocabulary</h3>
+                    </div>
+                    <span class="text-lg font-bold text-indigo-400" id="vocabulary-score">0</span>
+                </div>
+                <div class="w-full h-2 bg-white/5 rounded-full mb-3">
+                    <div class="progress-fill" id="vocabulary-bar" style="width: 0%"></div>
+                </div>
+                <p class="text-sm text-slate-400 whitespace-pre-line" id="vocabulary-feedback"></p>
+            </div>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="glass p-6 mb-6 feedback-card" style="animation-delay: 0.5s" id="suggestions-card">
+            <h3 class="font-semibold text-white mb-4 flex items-center gap-2">
+                <span>💡</span> Suggestions for Improvement
+            </h3>
+            <ul class="space-y-3" id="suggestions-list"></ul>
+        </div>
+
+        <!-- Try Again -->
+        <div class="text-center feedback-card" style="animation-delay: 0.6s">
+            <button onclick="resetPractice()" class="btn-glow text-lg px-10 py-4">
+                🔄 Try Again
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const currentLanguage = '{{ language }}';
+    let currentPrompt = '';
+    let isRecording = false;
+    let recognition = null;
+    let transcript = '';
+
+    // Initialize speech recognition
+    function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            document.getElementById('recording-status').textContent = '⚠️ Speech recognition not supported in this browser. Try Chrome.';
+            document.getElementById('mic-btn').style.opacity = '0.5';
+            document.getElementById('mic-btn').style.pointerEvents = 'none';
+            return;
+        }
+
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        // Set recognition language
+        const langMap = {
+            'english': 'en-US',
+            'spanish': 'es-ES',
+            'french': 'fr-FR',
+            'german': 'de-DE'
+        };
+        recognition.lang = langMap[currentLanguage] || 'en-US';
+
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
+            let finalTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+
+            if (finalTranscript) {
+                transcript += finalTranscript + ' ';
+            }
+
+            document.getElementById('transcript-text').textContent = transcript + interimTranscript;
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error:', event.error);
+            stopRecording();
+            if (event.error === 'network') {
+                document.getElementById('recording-status').textContent = '⚠️ Speech recognition unavailable (network error). Type your response below instead.';
+            } else if (event.error === 'not-allowed') {
+                document.getElementById('recording-status').textContent = '⚠️ Microphone access denied. Please allow mic access or type your response below.';
+            } else {
+                document.getElementById('recording-status').textContent = '⚠️ Error: ' + event.error + '. Try again or type below.';
+            }
+        };
+
+        recognition.onend = () => {
+            if (isRecording) {
+                // Restart if still in recording mode
+                try { recognition.start(); } catch(e) {}
+            }
+        };
+    }
+
+    // Toggle recording
+    function toggleRecording() {
+        if (isRecording) {
+            stopRecording();
+        } else {
+            startRecording();
+        }
+    }
+
+    function startRecording() {
+        if (!recognition) {
+            initSpeechRecognition();
+            if (!recognition) return;
+        }
+
+        transcript = '';
+        isRecording = true;
+        
+        document.getElementById('mic-btn').classList.add('recording');
+        document.getElementById('waveform').classList.remove('hidden');
+        document.getElementById('recording-status').textContent = '🔴 Recording... Click mic to stop';
+        document.getElementById('transcript-container').classList.remove('hidden');
+        document.getElementById('transcript-text').textContent = '';
+        document.getElementById('submit-btn').classList.add('hidden');
+
+        try {
+            recognition.start();
+        } catch(e) {
+            console.error('Could not start recognition:', e);
+        }
+    }
+
+    function stopRecording() {
+        isRecording = false;
+        
+        document.getElementById('mic-btn').classList.remove('recording');
+        document.getElementById('waveform').classList.add('hidden');
+        
+        if (recognition) {
+            recognition.stop();
+        }
+
+        if (transcript.trim()) {
+            document.getElementById('recording-status').textContent = '✅ Recording complete! Review your response below.';
+            document.getElementById('submit-btn').classList.remove('hidden');
+        } else {
+            document.getElementById('recording-status').textContent = 'No speech detected. Click the microphone to try again.';
+        }
+    }
+
+    // Get a new prompt
+    async function getNewPrompt() {
+        try {
+            const res = await fetch(`/api/prompt?language=${currentLanguage}`);
+            const data = await res.json();
+            currentPrompt = data.prompt;
+            document.getElementById('prompt-text').textContent = currentPrompt;
+        } catch(e) {
+            document.getElementById('prompt-text').textContent = 'Failed to load prompt. Please refresh.';
+        }
+    }
+
+    // Handle text input
+    function onTextInput() {
+        const textVal = document.getElementById('text-response').value.trim();
+        if (textVal.length > 0) {
+            transcript = textVal;
+            document.getElementById('submit-btn').classList.remove('hidden');
+        } else {
+            document.getElementById('submit-btn').classList.add('hidden');
+        }
+    }
+
+    // Submit for feedback
+    async function submitForFeedback() {
+        // Grab from textarea if transcript is empty
+        const textVal = document.getElementById('text-response').value.trim();
+        if (!transcript.trim() && textVal) {
+            transcript = textVal;
+        }
+        if (!transcript.trim()) {
+            showToast('Please speak or type a response first.', 'info');
+            return;
+        }
+
+        document.getElementById('recording-section').classList.add('hidden');
+        document.getElementById('loading-section').classList.remove('hidden');
+        document.getElementById('feedback-section').classList.add('hidden');
+
+        try {
+            const res = await fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transcript: transcript.trim(),
+                    language: currentLanguage,
+                    prompt: currentPrompt
+                })
+            });
+
+            const data = await res.json();
+            displayFeedback(data);
+        } catch(e) {
+            console.error('Feedback error:', e);
+            document.getElementById('loading-section').classList.add('hidden');
+            document.getElementById('recording-section').classList.remove('hidden');
+            showToast('Failed to get feedback. Please try again.', 'info');
+        }
+    }
+
+    // Display feedback
+    function displayFeedback(data) {
+        document.getElementById('loading-section').classList.add('hidden');
+        document.getElementById('feedback-section').classList.remove('hidden');
+
+        // Overall score animation
+        const score = data.score || 0;
+        const arc = document.getElementById('score-arc');
+        const circumference = 339.29;
+        const offset = circumference - (score / 10) * circumference;
+        
+        setTimeout(() => {
+            arc.style.strokeDashoffset = offset;
+        }, 100);
+
+        // Animate score number
+        animateNumber('overall-score', score, 1);
+        document.getElementById('overall-feedback').textContent = data.message || '';
+
+        // XP & Streak
+        if (data.xp_gained !== undefined) {
+            document.getElementById('xp-gained').textContent = '+' + data.xp_gained;
+        }
+        if (data.streak !== undefined) {
+            document.getElementById('streak-count').textContent = data.streak;
+        }
+
+        // Level up notification
+        if (data.level_up) {
+            showToast(`🎉 Level Up! You're now level ${data.new_level}!`, 'success');
+        }
+
+        // Category scores
+        const categories = ['grammar', 'fluency', 'pronunciation', 'vocabulary'];
+        categories.forEach(cat => {
+            if (data[cat]) {
+                const catScore = data[cat].score || 0;
+                animateNumber(`${cat}-score`, catScore, 1);
+                document.getElementById(`${cat}-bar`).style.width = (catScore * 10) + '%';
+                document.getElementById(`${cat}-feedback`).textContent = data[cat].feedback || '';
+            }
+        });
+
+        // Suggestions
+        const sugList = document.getElementById('suggestions-list');
+        sugList.innerHTML = '';
+        if (data.suggestions) {
+            data.suggestions.forEach(sug => {
+                const li = document.createElement('li');
+                li.className = 'flex items-start gap-3 text-sm text-slate-300';
+                li.innerHTML = `<span class="text-indigo-400 mt-0.5">▸</span><span>${sug}</span>`;
+                sugList.appendChild(li);
+            });
+        }
+    }
+
+    // Animate number
+    function animateNumber(elementId, target, decimals) {
+        const el = document.getElementById(elementId);
+        const duration = 1000;
+        const start = 0;
+        const startTime = performance.now();
+
+        function update(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3); // ease out cubic
+            const current = start + (target - start) * eased;
+            el.textContent = current.toFixed(decimals);
+
+            if (progress < 1) {
+                requestAnimationFrame(update);
+            }
+        }
+        requestAnimationFrame(update);
+    }
+
+    // Reset practice
+    function resetPractice() {
+        document.getElementById('feedback-section').classList.add('hidden');
+        document.getElementById('recording-section').classList.remove('hidden');
+        document.getElementById('recording-status').textContent = 'Click the microphone to start speaking';
+        document.getElementById('transcript-container').classList.add('hidden');
+        document.getElementById('submit-btn').classList.add('hidden');
+        document.getElementById('text-response').value = '';
+        transcript = '';
+
+        // Reset score arc
+        document.getElementById('score-arc').style.strokeDashoffset = '339.29';
+
+        getNewPrompt();
+    }
+
+    // Init
+    initSpeechRecognition();
+    getNewPrompt();
+</script>
+{% endblock %}
