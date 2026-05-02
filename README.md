@@ -1,5 +1,7 @@
 # SpeakEasy - AI Language Practice Bot
 
+🔗 **Live Demo**: [https://speakeasy-to8c.onrender.com](https://speakeasy-to8c.onrender.com)
+
 SpeakEasy is an interactive web application that helps users practice speaking foreign languages with AI-powered feedback. It provides conversation prompts, analyzes speech responses, and offers detailed feedback on grammar, pronunciation, fluency, and vocabulary.
 
 ## Features
